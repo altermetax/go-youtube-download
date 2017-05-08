@@ -3,16 +3,33 @@ package goytdl
 import (
 	"errors"
 	"net/url"
+	"regexp"
 	"strings"
 )
 
-// GetFmtStreamMap retrieves the stream map from a get_video_info request.
-func GetFmtStreamMap(videoInfo string) (fmtStreamMap []string, err error) {
-	values, err := url.ParseQuery(videoInfo)
-	if err != nil {
+// ErrNotAYouTubeURL is returned when the input URL can't be recognized as a YouTube URL.
+var ErrNotAYouTubeURL = errors.New("not recognized as a YouTube URL")
+
+// ErrUnavailableFormat is returned when the input format itag is not found in the input format stream map.
+var ErrUnavailableFormat = errors.New("unavailable video format")
+
+var youtubeDotComURL = regexp.MustCompile("(https?://)?(www\\.)?(youtube\\.com(/watch\\?v=|/watch\\?vi=|/v/|/vi/)|youtu\\.be/)([a-zA-Z0-9_])")
+
+// GetVideoIDFromURL retrieves the video ID from a YouTube URL.
+// May return ErrNotAYouTubeURL.
+func GetVideoIDFromURL(youtubeURL string) (videoID string, err error) {
+	if youtubeDotComURL.Match([]byte(youtubeURL)) {
+		substrings := youtubeDotComURL.FindStringSubmatch(youtubeURL)
+		videoID = substrings[5]
 		return
 	}
-	fmtStreamCSV := values.Get("url_encoded_fmt_stream_map")
+	err = ErrNotAYouTubeURL
+	return
+}
+
+// GetFmtStreamMap retrieves the stream map from a get_video_info request.
+func GetFmtStreamMap(videoInfo url.Values) (fmtStreamMap []string, err error) {
+	fmtStreamCSV := videoInfo.Get("url_encoded_fmt_stream_map")
 	if err != nil {
 		return
 	}
@@ -20,9 +37,9 @@ func GetFmtStreamMap(videoInfo string) (fmtStreamMap []string, err error) {
 	return
 }
 
-// GetURLFromItag retrieves the raw video download URL from a format itag and a format stream map.
+// GetURLFromFmtItag retrieves the raw video download URL from a format itag and a format stream map.
 // For available itags check https://en.wikipedia.org/wiki/YouTube#Quality_and_formats.
-func GetURLFromItag(fmtStreamMap []string, itag string) (itagURL string, err error) {
+func GetURLFromFmtItag(fmtStreamMap []string, itag string) (streamURL string, err error) {
 	for _, format := range fmtStreamMap {
 		var values url.Values
 		values, err = url.ParseQuery(format)
@@ -30,10 +47,10 @@ func GetURLFromItag(fmtStreamMap []string, itag string) (itagURL string, err err
 			return
 		}
 		if values.Get("itag") == itag {
-			itagURL = values.Get("url")
+			streamURL = values.Get("url")
 			return
 		}
 	}
-	err = errors.New("itag not found in the video streams map")
+	err = ErrUnavailableFormat
 	return
 }

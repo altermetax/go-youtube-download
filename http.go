@@ -1,15 +1,27 @@
 package goytdl
 
 import (
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 )
 
+// ErrVideoInfoHTTPNotOK is returned when YouTube servers return a HTTP status code different than 200.
+var ErrVideoInfoHTTPNotOK = errors.New("can't retrieve the video (HTTP error)")
+
+// ErrVideoInfoFail is returned when YouTube servers return a 200 HTTP status code, but an error occurs while retrieving the video.
+var ErrVideoInfoFail = errors.New("can't retrieve the video")
+
 // GetVideoInfo returns the result of youtube.com/get_video_info, using the id parameter as the video_id parameter in the request.
-func GetVideoInfo(id string) (responseBody string, err error) {
+// It may return ErrNotFound.
+func GetVideoInfo(id string) (responseBody url.Values, err error) {
 	resp, err := http.Get("http://youtube.com/get_video_info?video_id=" + id)
 	if err != nil {
+		return
+	} else if resp.StatusCode != http.StatusOK {
+		err = ErrVideoInfoHTTPNotOK
 		return
 	}
 	defer resp.Body.Close()
@@ -17,23 +29,37 @@ func GetVideoInfo(id string) (responseBody string, err error) {
 	if err != nil {
 		return
 	}
-	responseBody = string(responseBytes)
+	responseBody, err = url.ParseQuery(string(responseBytes))
+	if err != nil {
+		return
+	}
+	if responseBody.Get("status") == "fail" {
+		err = ErrVideoInfoFail
+		return
+	}
 	return
 }
 
-// Download is a Reader for a download that also does a percentage calculation.
+// Download is a ReadCloser for a HTTP download that also does a percentage calculation.
 type Download struct {
 	io.ReadCloser
 	TotalDownloadedBytes int64
 	TotalBytes           int64
 }
 
+// Read implements the Read method of the io.ReadCloser interface.
 func (dl *Download) Read(p []byte) (n int, err error) {
 	n, err = dl.ReadCloser.Read(p)
 	if err != nil {
 		return
 	}
 	dl.TotalDownloadedBytes += int64(n)
+	return
+}
+
+// Close implements the Close method of the io.ReadCloser interface
+func (dl *Download) Close() (err error) {
+	err = dl.ReadCloser.Close()
 	return
 }
 
@@ -65,7 +91,7 @@ func NewDownloadFromVideoID(id string, itag string) (dl *Download, err error) {
 	if err != nil {
 		return
 	}
-	url, err := GetURLFromItag(fmtStreamMap, itag)
+	url, err := GetURLFromFmtItag(fmtStreamMap, itag)
 	if err != nil {
 		return
 	}
