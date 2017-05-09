@@ -13,7 +13,7 @@ var ErrNotAYouTubeURL = errors.New("not recognized as a YouTube URL")
 // ErrUnavailableFormat is returned when the input format itag is not found in the input format stream map.
 var ErrUnavailableFormat = errors.New("unavailable video format")
 
-var youtubeDotComURL = regexp.MustCompile("(https?://)?(www\\.)?(youtube\\.com(/watch\\?v=|/watch\\?vi=|/v/|/vi/)|youtu\\.be/)([a-zA-Z0-9_])")
+var youtubeDotComURL = regexp.MustCompile("(https?://)?(www\\.)?(youtube\\.com(/watch\\?v=|/watch\\?vi=|/v/|/vi/)|youtu\\.be/)([a-zA-Z0-9_]+)")
 
 // GetVideoIDFromURL retrieves the video ID from a YouTube URL.
 // May return ErrNotAYouTubeURL.
