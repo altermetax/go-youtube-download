@@ -11,11 +11,8 @@ import (
 // ErrVideoInfoHTTPNotOK is returned when YouTube servers return a HTTP status code different than 200.
 var ErrVideoInfoHTTPNotOK = errors.New("can't retrieve the video (HTTP error)")
 
-// ErrVideoInfoFail is returned when YouTube servers return a 200 HTTP status code, but an error occurs while retrieving the video.
-var ErrVideoInfoFail = errors.New("can't retrieve the video")
-
 // GetVideoInfo returns the result of youtube.com/get_video_info, using the id parameter as the video_id parameter in the request.
-// It may return ErrNotFound.
+// It may return ErrVideoInfoHTTPNotOK or a variable error in case of an error from YouTube.
 func GetVideoInfo(id string) (responseBody url.Values, err error) {
 	resp, err := http.Get("http://youtube.com/get_video_info?video_id=" + id)
 	if err != nil {
@@ -34,7 +31,7 @@ func GetVideoInfo(id string) (responseBody url.Values, err error) {
 		return
 	}
 	if responseBody.Get("status") == "fail" {
-		err = ErrVideoInfoFail
+		err = errors.New("YouTube returned error: " + responseBody.Get("reason"))
 		return
 	}
 	return
